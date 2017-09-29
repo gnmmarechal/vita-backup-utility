@@ -5,86 +5,77 @@
 System.setCpuSpeed(444)
 
 local version = "1.0.0"
+local backupDir = "ux0:/data/vita-backup-utility"
 
 local white = Color.new(255, 255, 255, 255)
-local oldpad = Controls.read()
+
 -- Main Methods
-local scene = 1
-System.createDirectory("ux0:/data")
-System.createDirectory("ux0:/data/vita-backup-utility")
 
-function copyFile(input, output)
-	inp = io.open(input, FREAD)
-	if System.doesFileExist(output) then
-		System.deleteFile(output)
-	end
-	out = io.open(output,FCREATE)
-	size = io.size(inp)
-	io.write(out, io.read(inp, size), size)
-	io.close(inp)
-	io.close(out)
+function getBackupDir()
+	h, m, s = System.getTime()
+	dv, d, m, y = System.getDate()
+	return backupDir.."/backup-"..y.."-"..m.."-".."d"
 end
 
-function menu()
-	Graphics.debugPrint(5, 5, "Vita Backup Utility v"..version, white)
-	Graphics.debugPrint(5, 45, "X - Backup Files", white)
-	if Controls.check(Controls.read(), SCE_CTRL_CROSS) and not Controls.check(oldpad, SCE_CTRL_CROSS) then
-		scene = 2
+function copyFile(fileName, newFileName)
+	if System.doesFileExist(fileName) then
+		local fileStream = io.open(fileName, FCREATE)
+		local content = io.read(fileStream, io.size(fileStream))
+		local newFileStream = io.open(newFileName, FCREATE)
+		io.write(newFileStream, content, io.size(fileStream))
+		io.close(fileStream)
+		io.close(newFileStream)
+		return 0
 	end
+	return 1
 end
 
-function backup()
-	if loop == nil then
-		loop = 0
-	end
-	loop = loop + 1
-	Graphics.debugPrint(5, 5, "Backing up files...", white)
-	if (not backedUp) and (loop > 1) then
-		if backupPath == nil then
-			local h, m, s = System.getTime()
-			local dv, d, m, y = System.getDate()		
-			backupPath = "ux0:/data/vita-backup-utility/backup-"..y.."-"..m.."-"..d.."-"..h.."."..m.."."..s
-			System.createDirectory(backupPath)
+function doScene(number)
+	if number == 1 then
+		Graphics.debugPrint(5, 5, "Vita Backup Utility v"..version, white)
+		Graphics.debugPrint(5, 45, "X - Backup Files", white)
+		if Controls.check(Controls.read(), SCE_CTRL_START) and not Controls.check(oldpad, SCE_CTRL_START) then
+			scene = 2
+			return
 		end
-
+		if Controls.check(Controls.read(), SCE_CTRL_START) and not Controls.check(oldpad, SCE_CTRL_START) then
+			System.exit()
+		end
+	elseif number == 2 then
+		Graphics.debugPrint(5, 5, "Backing up files...", white)
+		scene = 3
+		return
+	elseif number == 3 then
+		Graphics.debugPrint(5, 5, "Backing up files...", white)
+		local backupPath = getBackupDir()
+		-- Activation Files
 		copyFile("tm0:/npdrm/act.dat", backupPath.."/tm0_npdrm_act.dat")
 		copyFile("vd0:/registry/system.dreg", backupPath.."/vd0_registry_system.dreg")
 		copyFile("vd0:/registry/system.ireg", backupPath.."/vd0_registry_system.ireg")
 		-- Required for Remote Play
 		copyFile("ur0:/user/00/np/myprofile.dat", backupPath.."/ur0_user_00_np_myprofile.dat")
-				
-		backedUp = true
-	else
-		Graphics.debugPrint(5, 20, "Finished backing up. Press START to go back.", white)
-		if Controls.check(Controls.read(), SCE_CTRL_START) and not Controls.check(oldpad, SCE_CTRL_START) then
-			loop = nil
-			backupPath = nil
-			backedUp = false
+		scene = 4
+		return
+	elseif number == 4 then
+		Graphics.debugPrint(5, 5, "Finished Backup! Press X to return to the main menu")
+		scene = 5		
+		return
+	elseif number == 5 then
+		Graphics.debugPrint(5, 5, "Finished Backup! Press X to return to the main menu")
+		Controls.check(Controls.read(), SCE_CTRL_CROSS) and not Controls.check(oldpad, SCE_CTRL_CROSS) then
 			scene = 1
+			return		
 		end
 	end
 end
-
-function restore()
-	Graphics.debugPrint(5, 5, "Available Backups:", white)
-	
-end
-
 -- Main Loop
-
+local scene = 1
 local running = true
-local backedUp = false
+local oldpad = Controls.read()
 while running do
 	Graphics.initBlend()
 	Screen.clear()
-	if scene == 3 then
-		restore()
-	elseif scene == 2 then
-		backup()
-	elseif scene == 1 then
-		menu()
-	end
+	doScene(scene)
 	Graphics.termBlend()	
 	Screen.flip()
 end
-System.exit()
